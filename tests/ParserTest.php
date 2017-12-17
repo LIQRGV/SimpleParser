@@ -94,7 +94,7 @@ class ParserTest extends \PHPUnit\Framework\TestCase
     public function testCalculateString() {
         $this->assertEquals($this->parser->calculateString("1+1"), 2);
         $this->assertEquals($this->parser->calculateString("-1+1"), 0);
-        $this->assertEquals($this->parser->calculateString("-1*2"), 2);
+        $this->assertEquals($this->parser->calculateString("-1*2"), -2);
         $this->assertEquals($this->parser->calculateString("1/2"), 0);
     }
 }

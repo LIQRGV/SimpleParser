@@ -8,91 +8,156 @@ define("SPACE", "space");
 
 class Parser
 {
-    /**
-     * @param   string  $string
-     * @throws  \Exception
-     * @return  int
-     */
-    public function calculateString($string)
-    {
-        foreach ($rr = $this->parseNumOpr($string) as $key => $val) {
-            $key === 0 and $r = $val;
-            if ($this->checkType($val) === OPR) {
-                $r = self::operate((int)$r, $val, (int)$rr[$key+1]);
+    function calculateString($string) {
+        $stack = $this->parseNumOpr($string);
+        $initValue = array_shift($stack);
+        $chunkedArray = array_chunk($stack, 2);
+        $reducer = function($carrier, $currentVal) {
+            switch($currentVal[0]) {
+            case "+":
+                return $carrier + $currentVal[1];
+            case "-":
+                return $carrier - $currentVal[1];
+            case "*":
+                return $carrier * $currentVal[1];
+            case "/":
+                return intdiv($carrier, $currentVal[1]);
             }
-        }
-        return $r;
+        };
+        return array_reduce($chunkedArray, $reducer, $initValue);
     }
 
-    /**
-     * @param   int     $a1
-     * @param   string  $a2
-     * @param   int     $a3
-     * @return  int
-     */
-    private static function operate($a1, $a2, $a3)
-    {
-        return ($a2 === '+' ? $a1 + $a3 : ($a2 === '-' ? $a1 - $a3 : ($a2 === '*' ? $a1 * $a3 : ($a2 === '/' ? (int) ($a1 / $a3) : ~0))));
-    }
+    function parseNumOpr($string) {
+        $normalizedBucket = array();
+        $typeTracker = new \SplFixedArray(2); // we want so save last 2, anyway
 
-    /**
-     * @param   string  $string
-     * @throws  \Exception
-     * @return  array
-     */
-    public function parseNumOpr($string)
-    {
-        if (($this->checkType($curtype = $string[0])) === OPR && $curtype !== "-") {
-            throw new \Exception("Syntax error", 1);
-        }
-        $string = str_replace(" ", "", $string);
-        $len    = strlen($string);
-        if ($len === 1) {
-            return [$string];
-        }
-        $r = [];
-        for ($i=0; $i < $len; $i++) {
-            if ($i === 0) {
-                $r[$i] = $string[$i];
+        $length = strlen($string);
+
+        for($i = 0; $i < $length; $i++) {
+            $char = $string[$i];
+            $type = $this->checkType($char);
+
+            if($type == SPACE) {
+                continue;
             } else {
-                if ($this->checkType($string[$i]) === OPR and $this->checkType($string[$i-1]) === OPR) {
-                    throw new \Exception("Syntax error", 1);
-                }
-                if (($this->checkType($string[$i]) === NUMBER and $this->checkType($string[$i-1]) === NUMBER) or
-                    ($this->checkType($string[$i]) === NUMBER and $string[$i-1] === "-")
-                ) {
-                    $r[$i-1] .= $string[$i];
-                } else {
-                    $r[$i]    = $string[$i];
-                }
+                list($normalizedBucket, $typeTracker) = $this->addToBucket($normalizedBucket, $typeTracker, $char, $type);
             }
         }
-        $rr = [];
-        foreach ($r as $val) {
-            $rr[] = $val;
+
+        {
+            $typeTrackerLength = count($typeTracker);
+            if($typeTracker[$typeTrackerLength - 1] == OPR) {
+                throw new \Exception("invalid input"); // OPR at last is illegal
+            }
         }
-        unset($r);
-        if ($this->checkType($rr[sizeof($rr) - 1]) === OPR) {
-            throw new \Exception("Syntax error", 1);
-        }
-        return $rr;
+
+        return $normalizedBucket;
     }
 
-    /**
-     * @param   char        $char
-     * @throws  \Exception
-     * @return  string
-     */
-    public function checkType($char)
-    {
-        return (
-            in_array($char, ["-", "+", "/", "*"]) ? OPR : (
-                 $char === " " ? SPACE : (
-                    is_numeric($char) ? NUMBER : (function () {
-                        throw new \Exception("Unknown type", 1);
-                    })()
-                 )
-            )
-        );
+    function checkType($char) {
+        if($this->isSpace($char)) {
+            return SPACE;
+        } else if($this->isOpr($char)) {
+            return OPR;
+        } else if($this->isNumber($char)) {
+            return NUMBER;
+        } else {
+            throw new \Exception("invalid input");
+        }
     }
+
+    private function isSpace($char) {
+        return $char == " ";
+    }
+
+    private function isOpr($char) {
+        $oprCollection = array("*", "/", "+", "-");
+        return in_array($char, $oprCollection);
+    }
+
+    private function isNumber($char) {
+        $numCollection = array("0","1","2","3","4","5","6","7","8","9");
+        return in_array($char, $numCollection);
+    }
+
+    private function addToBucket($bucket, $typeTracker, $char, $typeToAdd) {
+        $bucketSize = count($bucket);
+        $typeArray = $typeTracker->toArray();
+
+        if(!is_null($typeArray[1])) {
+            if($typeArray[1] != $typeToAdd) {
+                if($typeToAdd == NUMBER) {
+                    if(array(OPR, OPR) == $typeArray) {
+                        $lastOpr = array_pop($bucket);
+                        if($lastOpr == "-") {
+                            $char *= -1;
+                        }
+                    }
+                }
+                $typeArray[0] = $typeArray[1];
+                $typeArray[1] = $typeToAdd;
+                $bucket[] = $char;
+            } else {
+                if($typeToAdd == NUMBER) {
+                    $bucket[$bucketSize - 1] *= 10;
+                    if($bucket[$bucketSize - 1] > 0) {
+                        $bucket[$bucketSize - 1] += $char;
+                    } else {
+                        $bucket[$bucketSize - 1] -= $char;
+                    }
+                } else {
+                    if($typeArray[0] == OPR) {
+                        throw new \Exception("invalid input"); // OPR OPR OPR is illegal
+                    } else if($char == "/" || $char == "*") {
+                        throw new \Exception("invalid input"); // OPR (*||/) is illegal
+                    } else {
+                        $typeArray[0] = $typeArray[1];
+                        $typeArray[1] = $typeToAdd;
+                        $bucket[] = $char;
+                    }
+                }
+            }
+        } else if(!is_null($typeArray[0])) {
+            if($typeArray[0] != $typeToAdd) {
+                if($typeArray[0] == OPR) {
+                    $firstOpr = array_shift($bucket);
+                    if($firstOpr == "-") {
+                        $bucket[0] = $char * -1;
+                    } else {
+                        $bucket[0] = $char;
+                    }
+                    $typeArray[0] = $typeToAdd;
+                } else {
+                    $typeArray[1] = $typeToAdd;
+                    $bucket[] = $char;
+                }
+            } else {
+                if($typeToAdd == NUMBER) {
+                    $bucket[$bucketSize - 1] *= 10;
+                    if($bucket[$bucketSize - 1] > 0) {
+                        $bucket[$bucketSize - 1] += $char;
+                    } else {
+                        $bucket[$bucketSize - 1] -= $char;
+                    }
+                } else {
+                    if($typeArray[0] == OPR) {
+                        throw new \Exception("invalid input"); // OPR OPR at first is illegal
+                    } else {
+                        $typeArray[1] = $typeToAdd;
+                        $bucket[] = $char;
+                    }
+                }
+            }
+        } else {
+            if($char == "/" || $char == "*") {
+                throw new \Exception("invalid input");   // * or / at first is illegal
+            } else {
+                $typeArray[0] = $typeToAdd;
+                $bucket[0] = $char;
+            }
+        }
+
+        return array($bucket, \SplFixedArray::fromArray($typeArray));
+    }
+
 }

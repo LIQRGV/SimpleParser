@@ -1,8 +1,6 @@
 <?php
 namespace LIQRGV\SimpleParser;
 
-require __DIR__ . "/../vendor/autoload.php";
-
 use PHPUnit\Framework\TestCase;
 use LIQRGV\SimpleParser\Parser;
 
@@ -42,15 +40,29 @@ class ParserTest extends \PHPUnit\Framework\TestCase
         $this->parser->checkType("a");
     }
 
-    public function testParseNumOprWithForbidenOprAtFirstInvalid(){
+    public function testParseNumOprWithTimesOprAtFirstInvalid(){
         $this->expectException(\Exception::class);
         $this->parser->parseNumOpr("*1");
+    }
+
+    public function testParseNumOprWithDivOprAtFirstInvalid(){
+        $this->expectException(\Exception::class);
         $this->parser->parseNumOpr("/1");
     }
 
     public function testParseNumOprWith2OprAtFirstInvalid(){
         $this->expectException(\Exception::class);
         $this->parser->parseNumOpr("++1");
+    }
+
+    public function testParseNumOprWith2OprWithTimesInvalid(){
+        $this->expectException(\Exception::class);
+        $this->parser->parseNumOpr("1+*1");
+    }
+
+    public function testParseNumOprWith2OprWithDivInvalid(){
+        $this->expectException(\Exception::class);
+        $this->parser->parseNumOpr("1+/1");
     }
 
     public function testParseNumOprWith3OprInvalid(){
@@ -96,5 +108,12 @@ class ParserTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals($this->parser->calculateString("-1+1"), 0);
         $this->assertEquals($this->parser->calculateString("-1*2"), -2);
         $this->assertEquals($this->parser->calculateString("1/2"), 0);
+    }
+
+    public function testCalculateStringNotSingleDigit() {
+        $this->assertEquals($this->parser->calculateString("1+11"), 12);
+        $this->assertEquals($this->parser->calculateString("-1+11"), 10);
+        $this->assertEquals($this->parser->calculateString("-11*2"), -22);
+        $this->assertEquals($this->parser->calculateString("11/2"), 5);
     }
 }

@@ -1,0 +1,24 @@
+{
+    "name": "liqrgv/simple-parser",
+    "description": "Parser and interpreter for simple math operation",
+    "authors": [
+        {
+            "name": "Septian Hari",
+            "email": "septianhari@gmail.com"
+        }
+    ],
+    "require": {},
+    "require-dev": {
+      "phpunit/phpunit": "~6.0"
+    },
+    "autoload": {
+      "psr-4": {
+        "LIQRGV\\SimpleParser\\": "src/"
+      }
+    },
+    "autoload-dev": {
+      "classmap": [
+        "tests/ParserTest.php"
+      ]
+    }
+}

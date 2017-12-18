@@ -116,4 +116,12 @@ class ParserTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals($this->parser->calculateString("-11*2"), -22);
         $this->assertEquals($this->parser->calculateString("11/2"), 5);
     }
+
+    public function testCalculateStringWithArithmOrder() {
+        $this->assertEquals($this->parser->calculateString("12/2+1"), 7);
+        $this->assertEquals($this->parser->calculateString("-1+11*2"), 21);
+        $this->assertEquals($this->parser->calculateString("-11*2-1"), -23);
+        $this->assertEquals($this->parser->calculateString("11/2*4"), 22);
+    }
 }
+

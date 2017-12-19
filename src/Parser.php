@@ -9,22 +9,8 @@ define("SPACE", "space");
 class Parser
 {
     function calculateString($string) {
-        $stack = $this->parseNumOpr($string);
-        $initValue = array_shift($stack);
-        $chunkedArray = array_chunk($stack, 2);
-        $reducer = function($carrier, $currentVal) {
-            switch($currentVal[0]) {
-            case "+":
-                return $carrier + $currentVal[1];
-            case "-":
-                return $carrier - $currentVal[1];
-            case "*":
-                return $carrier * $currentVal[1];
-            case "/":
-                return intdiv($carrier, $currentVal[1]);
-            }
-        };
-        return array_reduce($chunkedArray, $reducer, $initValue);
+        $numOprArray = $this->parseNumOpr($string);
+        return $this->calculateNumOpr($numOprArray);
     }
 
     function parseNumOpr($string) {
@@ -160,4 +146,66 @@ class Parser
         return array($bucket, \SplFixedArray::fromArray($typeArray));
     }
 
+    private function calculateNumOpr($numOprArray) {
+        $numOprWithOprPredescent = $this->createOprPredescentArray($numOprArray);
+
+        $simplifiedNumOprWithPredescent = $this->simplifyNestedNumOpr($numOprWithOprPredescent);
+
+        $initValue = array_shift($simplifiedNumOprWithPredescent);
+        $chunkedArray = array_chunk($simplifiedNumOprWithPredescent, 2);
+        $reducer = function($carrier, $currentVal) {
+            switch($currentVal[0]) {
+            case "+":
+                return $carrier + $currentVal[1];
+            case "-":
+                return $carrier - $currentVal[1];
+            case "*":
+                return $carrier * $currentVal[1];
+            case "/":
+                return intdiv($carrier, $currentVal[1]);
+            }
+        };
+        return array_reduce($chunkedArray, $reducer, $initValue);
+    }
+
+    private function createOprPredescentArray($initialArray) {
+        $initValue = array_shift($initialArray);
+        $stack = array($initValue);
+        $chunkedArray = array_chunk($initialArray, 2);
+        $oprPredescentReducer = function($carrier, $currentVal) {
+            switch($currentVal[0]) {
+            case "+":
+            case "-":
+                array_push($carrier, $currentVal[0], $currentVal[1]);
+                return $carrier;
+            case "*":
+            case "/":
+                $prevNum = array_pop($carrier);
+                array_push($carrier, array($prevNum, $currentVal[0], $currentVal[1]));
+                return $carrier;
+            }
+        };
+        return array_reduce($chunkedArray, $oprPredescentReducer, $stack);
+    }
+
+    private function simplifyNestedNumOpr($numOprWithOprPredescent) {
+        $simplifiedReducer = function($value) use (&$simplifiedReducer) {
+            if(!is_array($value)) {
+                return $value;
+            } else {
+                switch($value[1]) {
+                case "+":
+                    return $simplifiedReducer($value[0]) + $value[2];
+                case "-":
+                    return $simplifiedReducer($value[0]) - $value[2];
+                case "*":
+                    return $simplifiedReducer($value[0]) * $value[2];
+                case "/":
+                    return intdiv($simplifiedReducer($value[0]), $value[2]);
+                }
+            }
+        };
+        return array_map($simplifiedReducer, $numOprWithOprPredescent);
+    }
 }
+

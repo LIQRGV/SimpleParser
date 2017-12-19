@@ -15,12 +15,8 @@ class Parser
      */
     public function calculateString($string)
     {
-        $pos = $pos2 = $cost = $rr = 0;
+        $pos = $rr = 0;
         $raw = $this->parseNumOpr($string);
-        foreach ($raw as &$val) {
-            $val = is_numeric($val) ? (int) $val : $val;
-        }
-        unset($val);
         $size = sizeof($raw);
         $rn  = [];
         while ((in_array("*", $raw) or in_array("/", $raw)) and $pos < $size) {

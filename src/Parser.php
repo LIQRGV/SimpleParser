@@ -17,8 +17,13 @@ class Parser
     {
         $pos = $pos2 = $cost = $rr = 0;
         $raw = $this->parseNumOpr($string);
+        foreach ($raw as &$val) {
+            $val = is_numeric($val) ? (int) $val : $val;
+        }
+        unset($val);
+        $size = sizeof($raw);
         $rn  = [];
-        while (in_array("*", $raw) || in_array("/", $raw)) {
+        while ((in_array("*", $raw) or in_array("/", $raw)) and $pos < $size) {
             foreach ($raw as $key => $val) {
                 if ($val === "*" or $val === "/") {
                     $raw[$key-1] = self::operate((int) $raw[$key-1], $val, (int) $raw[$key+1]);
@@ -29,10 +34,13 @@ class Parser
                     }
                     $raw = $rtmp;
                     break;
+                } else {
+                    $pos++;
                 }
             }
         }
-        while (in_array("+", $raw) || in_array("-", $raw)) {
+        $pos = 0;
+        while ((in_array("+", $raw) or in_array("-", $raw)) and $pos < $size) {
             foreach ($raw as $key => $val) {
                 if ($val === "+" or $val === "-") {
                     $raw[$key-1] = self::operate((int) $raw[$key-1], $val, (int) $raw[$key+1]);
@@ -43,6 +51,8 @@ class Parser
                     }
                     $raw = $rtmp;
                     break;
+                } else {
+                    $pos++;
                 }
             }
         }

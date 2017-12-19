@@ -15,13 +15,44 @@ class Parser
      */
     public function calculateString($string)
     {
-        foreach ($rr = $this->parseNumOpr($string) as $key => $val) {
-            $key === 0 and $r = $val;
-            if ($this->checkType($val) === OPR) {
-                $r = self::operate((int)$r, $val, (int)$rr[$key+1]);
+        $pos = $rr = 0;
+        $raw = $this->parseNumOpr($string);
+        $size = sizeof($raw);
+        $rn  = [];
+        while ((in_array("*", $raw) or in_array("/", $raw)) and $pos < $size) {
+            foreach ($raw as $key => $val) {
+                if ($val === "*" or $val === "/") {
+                    $raw[$key-1] = self::operate((int) $raw[$key-1], $val, (int) $raw[$key+1]);
+                    unset($raw[$key], $raw[$key+1]);
+                    $rtmp = [];
+                    foreach ($raw as $subval) {
+                        $rtmp[] = $subval;
+                    }
+                    $raw = $rtmp;
+                    break;
+                } else {
+                    $pos++;
+                }
             }
         }
-        return $r;
+        $pos = 0;
+        while ((in_array("+", $raw) or in_array("-", $raw)) and $pos < $size) {
+            foreach ($raw as $key => $val) {
+                if ($val === "+" or $val === "-") {
+                    $raw[$key-1] = self::operate((int) $raw[$key-1], $val, (int) $raw[$key+1]);
+                    unset($raw[$key], $raw[$key+1]);
+                    $rtmp = [];
+                    foreach ($raw as $subval) {
+                        $rtmp[] = $subval;
+                    }
+                    $raw = $rtmp;
+                    break;
+                } else {
+                    $pos++;
+                }
+            }
+        }
+        return $raw[0];
     }
 
     /**
@@ -42,40 +73,66 @@ class Parser
      */
     public function parseNumOpr($string)
     {
-        if (($this->checkType($curtype = $string[0])) === OPR && $curtype !== "-") {
+
+        $string = str_replace(" ", "", $string);
+
+        if (($this->checkType($string[0]) === OPR and ($string[0] !== "-" and $string[0] !== "+"))) {
             throw new \Exception("Syntax error", 1);
         }
-        $string = str_replace(" ", "", $string);
-        $len    = strlen($string);
-        if ($len === 1) {
+
+        if (($len = strlen($string)) === 1) {
+            if ($this->checkType($string) === OPR) {
+                throw new \Exception("Syntax error", 1);
+            }
             return [$string];
         }
-        $r = [];
+
+        $r   = [];
+        $cost = $pos = 0;
+
         for ($i=0; $i < $len; $i++) {
             if ($i === 0) {
-                $r[$i] = $string[$i];
-            } else {
-                if ($this->checkType($string[$i]) === OPR and $this->checkType($string[$i-1]) === OPR) {
-                    throw new \Exception("Syntax error", 1);
+                $r[$pos] = $string[$i];
+                if ($this->checkType($string[$i]) === OPR) {
+                    $cost = 2;
                 }
-                if (($this->checkType($string[$i]) === NUMBER and $this->checkType($string[$i-1]) === NUMBER) or
-                    ($this->checkType($string[$i]) === NUMBER and $string[$i-1] === "-")
-                ) {
-                    $r[$i-1] .= $string[$i];
+            } else {
+                if (isset($string[$i]) and $this->checkType($string[$i-1]) === OPR and $this->checkType($string[$i-1]) === OPR and $this->checkType($string[$i]) === OPR) {
+                    throw new \Exception("Syntax error", 1);
+                } elseif ($this->checkType($string[$i]) === NUMBER) {
+                    if (1 === $cost and $this->checkType($r[$pos]) === OPR and isset($r[$pos-1]) and $this->checkType($r[$pos-1]) === OPR) {
+                        if ($r[$pos] === "+" or $r[$pos] === "-") {
+                            $r[$pos] .= $string[$i];
+                            $cost = 0;
+                        } else {
+                            throw new \Exception("Syntax error", 1);
+                        }
+                    } elseif (2 === $cost) {
+                        $r[$pos] .= $string[$i];
+                    } elseif ($this->checkType($r[$pos]) === NUMBER) {
+                        $r[$pos] .= $string[$i];
+                    } else {
+                        $r[++$pos] = $string[$i];
+                    }
                 } else {
-                    $r[$i]    = $string[$i];
+                    if ($this->checkType($string[$i]) === OPR) {
+                        if (2 === $cost and $i === 1) {
+                            throw new \Exception("Syntax error", 1);
+                        }
+                        $r[++$pos] = $string[$i];
+                        if (isset($string[$i+1]) and $this->checkType($string[$i]) === OPR) {
+                            $cost = 1;
+                        }
+                    }
                 }
             }
         }
-        $rr = [];
-        foreach ($r as $val) {
-            $rr[] = $val;
-        }
-        unset($r);
-        if ($this->checkType($rr[sizeof($rr) - 1]) === OPR) {
+
+        if ($this->checkType(end($r)) === OPR) {
             throw new \Exception("Syntax error", 1);
         }
-        return $rr;
+
+        return $r;
     }
 
     /**
@@ -85,14 +142,6 @@ class Parser
      */
     public function checkType($char)
     {
-        return (
-            in_array($char, ["-", "+", "/", "*"]) ? OPR : (
-                 $char === " " ? SPACE : (
-                    is_numeric($char) ? NUMBER : (function () {
-                        throw new \Exception("Unknown type", 1);
-                    })()
-                 )
-            )
-        );
+        return (in_array($char, ["+", "-", "/", "*"]) ? OPR : (is_numeric($char) ? NUMBER : ($char === " " ? SPACE : (function() use ($char) { throw new \Exception("Unknown type", 1); })())));
     }
 }
